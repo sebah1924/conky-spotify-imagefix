@@ -17,6 +17,8 @@ Conky Spotify with Image Fix is an enhanced version of the [original Conky-Spoti
 
 ![Sample Spotify-Conky-Redone](preview2.png)
 
+![Sample Spotify-Conky-Redone](conky-spotify-redone-rounded/preview.png)
+
 **Spotify-Conky-Redone** is an advanced version of **Conky Spotify with Image Fix**, featuring a Lua-rendered background, colored borders, and optimized performance. It caches album art as PNGs to reduce downloads, eliminates JPG storages. All rendering, previously handled in `conky.text`, is now managed by `display.lua` for greater flexibility.
 
 ## Requirements

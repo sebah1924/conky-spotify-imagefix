@@ -10,9 +10,6 @@ require 'cairo'
 local status, cairo_xlib = pcall(require, 'cairo_xlib')
 
 if not status then
-    -- If not found, fall back to a dummy table
-    -- Redirects unknown keys to the global namespace (_G)
-    -- Allows use of global Cairo functions like cairo_xlib_surface_create
     cairo_xlib = setmetatable({}, {
         __index = function(_, key)
             return _G[key]
@@ -36,10 +33,8 @@ if not conky_vars then
 end
 conky_vars()
 
--- === Utility ===
-local unpack = table.unpack or unpack  -- Compatibility for Lua 5.1 and newer
+local unpack = table.unpack or unpack
 
--- === Execute shell scripts and fetch output ===
 local function execute_script(script_path)
     local handle = io.popen(script_path .. " 2>/dev/null")
     if not handle then
@@ -48,12 +43,10 @@ local function execute_script(script_path)
     end
     local result = handle:read("*a")
     handle:close()
-    -- Trim whitespace and return result, or fallback if empty
     result = result:gsub("^%s*(.-)%s*$", "%1")
     return result ~= "" and result or "Unknown"
 end
 
--- === Check if Spotify is running with caching ===
 local last_status = nil
 local last_check_time = 0
 local function is_spotify_running()
@@ -70,7 +63,6 @@ local function is_spotify_running()
     return last_status
 end
 
--- === Execute cover script (no output expected) ===
 local function execute_cover_script()
     local script_path = parent_path .. "scripts/cover.sh"
     local handle = io.popen("timeout 2 " .. script_path .. " 2>&1")
@@ -82,7 +74,6 @@ local function execute_cover_script()
     return true
 end
 
--- === Fetch all Spotify metadata in one call ===
 local function get_spotify_metadata()
     local cmd = [[dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get string:'org.mpris.MediaPlayer2.Player' string:'Metadata']]
     local handle = io.popen(cmd .. " 2>&1")
@@ -95,25 +86,24 @@ local function get_spotify_metadata()
 
     local metadata = { title = "Unknown Title", artist = "Unknown Artist", album = "Unknown Album", status = "Paused" }
 
-    -- Extract title
     local title = output:match('xesam:title.-variant%s+string%s+"([^"]+)"')
     if title then
         metadata.title = title
     end
-
-    -- Extract artist
     local artist = output:match('xesam:artist.-string%s+"([^"]+)"')
     if artist then
         metadata.artist = artist
     end
-
-    -- Extract album
     local album = output:match('xesam:album.-variant%s+string%s+"([^"]+)"')
     if album then
         metadata.album = album
     end
 
-    -- Extract playback status
+    local max_length = 46
+    metadata.title = metadata.title:sub(1, max_length)
+    metadata.artist = metadata.artist:sub(1, max_length)
+    metadata.album = metadata.album:sub(1, max_length)
+
     local status_cmd = [[dbus-send --print-reply --dest=org.mpris.MediaPlayer2.spotify /org/mpris/MediaPlayer2 org.freedesktop.DBus.Properties.Get string:'org.mpris.MediaPlayer2.Player' string:'PlaybackStatus' 2>/dev/null]]
     local status_handle = io.popen(status_cmd)
     if status_handle then
@@ -128,7 +118,6 @@ local function get_spotify_metadata()
     return metadata
 end
 
--- === Fetch progress data ===
 local function get_progress_data()
     local script_path = parent_path .. "scripts/progress.sh"
     local progress = execute_script(script_path)
@@ -143,7 +132,6 @@ local function get_progress_data()
     }
 end
 
--- === Color parsing helpers ===
 local function parse_border_color(border_color_str)
     local gradient = {}
     for position, color, alpha in border_color_str:gmatch("([%d%.]+),0x(%x+),([%d%.]+)") do
@@ -174,202 +162,171 @@ local function parse_bg_color(bg_color_str)
     return { {1, 0x000000, 1} }
 end
 
--- === Color values from settings.lua ===
 local border_color = parse_border_color(border_COLOR)
 local bg_color = parse_bg_color(bg_COLOR)
 local border_color2 = parse_border_color2(border_COLOR2)
 
--- === Table of drawable elements ===
 local boxes_settings = {
     {
-        type = "background", -- Track info background
+        type = "background",
         x = 172, y = 2, w = 488, h = 167,
         centre_x = false,
-        corners = {0, 0, 0, 0},
+        corners = {20, 20, 20, 20},
         draw_me = true,
         colour = bg_color
     },
-
     {
-        type = "layer2", -- Track info background
+        type = "layer2",
         x = 172, y = 2, w = 488, h = 167,
         centre_x = false,
-        corners = {0, 0, 0, 0},
+        corners = {20, 20, 20, 20},
         draw_me = true,
-        linear_gradient = {172, 2, 172, 169}, -- Gradient from top to bottom
+        linear_gradient = {172, 2, 172, 169},
         colours = {
-            {0, 0x000000, 0.2},
-            {0.33, 0xC0C0C0, 0.2},
-            {0.66, 0xC0C0C0, 0.2},
-            {1, 0x000000, 0.2}
+            {0,0x0d1828,0.33},
+            {0.5,0x0d1828,0.66},
+            {1,0x0d1828,1},
         }
     },
-
     {
-        type = "border", -- Track info border
+        type = "border",
         x = 172, y = 2, w = 488, h = 167,
         centre_x = false,
-        corners = {0, 0, 0, 0},
+        corners = {20, 20, 20, 20},
         draw_me = true,
-        border = 3,
+        border = 4,
         colour = border_color,
-        linear_gradient = {172, 85, 653, 85}
+        linear_gradient = {0, 0, 0, 167}
     },
-
     {
-        type = "image", -- Album art image
+        type = "image",
         path = parent_path .. "current/current.png",
         x = 5, y = 5, w = 164, h = 164,
+        corners = {20, 20, 20, 20},
         draw_me = true
     },
-
     {
-        type = "border", -- Image border
+        type = "border", -- Image-border
         x = 2, y = 2, w = 167, h = 167,
         centre_x = false,
-        corners = {0, 0, 0, 0},
+        corners = {20, 20, 20, 20},
         draw_me = true,
-        border = 3,
+        border = 4,
         colour = border_color2,
-        linear_gradient = {2, 85, 169, 85}
+        linear_gradient = {0, 0, 0, 167}
     },
-
-    -- Label: Title
     {
         type = "text",
-        x = 180, y = 20,
+        x = 184, y = 20,
         text = "Title:",
         font = "Noto Sans",
         font_size = 12,
-        colour = {{1, 0xFFFF00, 1}}, 
+        colour = {{1, 0xFFFF00, 1}},
         draw_me = true
     },
-
-    -- Metadata: Title
     {
         type = "text",
         x = 190, y = 44,
         text = "title",
         font = "GE Inspira",
         font_size = 22,
-        colour = {{1, 0xFFBC6B, 1}}, 
+        colour = {{1, 0xFFBC6B, 1}},
         draw_me = true
     },
-
-    -- Label: Artist
     {
         type = "text",
-        x = 180, y = 64,
+        x = 184, y = 64,
         text = "Artist:",
         font = "Noto Sans",
         font_size = 12,
-        colour = {{1, 0xFFFF00, 1}}, 
+        colour = {{1, 0xFFFF00, 1}},
         draw_me = true
     },
-
-    -- Metadata: Artist
     {
         type = "text",
         x = 190, y = 88,
         text = "artist",
         font = "GE Inspira",
         font_size = 22,
-        colour = {{1, 0xFFBC6B, 1}}, 
+        colour = {{1, 0xFFBC6B, 1}},
         draw_me = true
     },
-
-    -- Label: Album
     {
         type = "text",
-        x = 180, y = 108,
+        x = 184, y = 108,
         text = "Album:",
         font = "Noto Sans",
         font_size = 12,
-        colour = {{1, 0xFFFF00, 1}}, 
+        colour = {{1, 0xFFFF00, 1}},
         draw_me = true
     },
-
-    -- Metadata: Album
     {
         type = "text",
         x = 190, y = 132,
         text = "album",
         font = "GE Inspira",
         font_size = 22,
-        colour = {{1, 0xFFBC6B, 1}}, 
+        colour = {{1, 0xFFBC6B, 1}},
         draw_me = true
     },
-
-    -- Progress bar (filled)
     {
         type = "background",
         x = 210, y = 158, w = 0, h = 6,
         centre_x = false,
-        corners = {3, 3, 3, 3}, -- Rounded corners
+        corners = {3, 3, 3, 3},
         draw_me = true,
-        linear_gradient = {210, 161, 640, 161}, -- Adjusted for 430px
-        colours = { 
+        linear_gradient = {210, 161, 640, 161},
+        colours = {
             {0, 0xFFAA00, 1},
             {0.5, 0xFF5500, 1},
             {1, 0x802a00, 1}
         }
     },
-
-    -- Progress bar border
     {
         type = "border",
         x = 210, y = 158, w = 430, h = 6,
         centre_x = false,
-        corners = {3, 3, 3, 3}, -- Adjusted for consistency
+        corners = {3, 3, 3, 3},
         draw_me = true,
         border = 1,
         colour = {{1, 0xaa7b9e, 1}},
-        linear_gradient = {210, 161, 640, 161} -- Adjusted for 430px
+        linear_gradient = {210, 161, 640, 161}
     },
-
-    -- Elapsed time
     {
         type = "text",
         x = 210, y = 154,
         text = "elapsed",
         font = "Noto Sans",
         font_size = 12,
-        colour = {{1, 0xFFFFFF, 1}}, 
+        colour = {{1, 0xFFFFFF, 1}},
         draw_me = true
     },
-
-    -- Remaining time
     {
         type = "text",
         x = 610, y = 154,
         text = "remaining",
         font = "Noto Sans",
         font_size = 12,
-        colour = {{1, 0xFFFFFF, 1}}, 
+        colour = {{1, 0xFFFFFF, 1}},
         draw_me = true
     },
-
-    -- Playback status indicator
     {
         type = "text",
-        x = 184, y = 158,
+        x = 188, y = 155,
         text = "status",
-        font = "Symbola",
-        font_size = 24,
-        colour = {{1, 0xFFFFFF, 1}}, 
+        font = "DejaVu Sans",
+        font_size = 20,
+        colour = {{1, 0xFFFFFF, 1}},
         draw_me = false
     }
 }
 
--- === Convert hex to RGBA ===
 local function hex_to_rgba(hex, alpha)
     return ((hex >> 16) & 0xFF) / 255, ((hex >> 8) & 0xFF) / 255, (hex & 0xFF) / 255, alpha
 end
 
--- === Draw custom rounded rectangle with independent corners ===
 local function draw_custom_rounded_rectangle(cr, x, y, w, h, r)
     local tl, tr, br, bl = unpack(r)
-
     cairo_new_path(cr)
     cairo_move_to(cr, x + tl, y)
     cairo_line_to(cr, x + w - tr, y)
@@ -383,30 +340,25 @@ local function draw_custom_rounded_rectangle(cr, x, y, w, h, r)
     cairo_close_path(cr)
 end
 
--- === Draw text with shadow ===
 local function draw_text(cr, x, y, text, font, font_size, color)
     if not text or text == "" then
         text = "Unknown"
     end
     cairo_select_font_face(cr, font, CAIRO_FONT_SLANT_NORMAL, CAIRO_FONT_WEIGHT_NORMAL)
     cairo_set_font_size(cr, font_size)
-    -- Draw shadow
     cairo_set_source_rgba(cr, 0, 0, 0, 0.5)
     cairo_move_to(cr, x+1, y+1)
     cairo_show_text(cr, text)
-    -- Draw text
     cairo_set_source_rgba(cr, hex_to_rgba(color[1][2], color[1][3]))
     cairo_move_to(cr, x, y)
     cairo_show_text(cr, text)
 end
 
--- === Centering helper ===
 local function get_centered_x(canvas_width, box_width)
     return (canvas_width - box_width) / 2
 end
 
--- === Draw image with scaling ===
-function conky_draw_image(path, x, y, w, h)
+function conky_draw_image(path, x, y, w, h, corners)
     if conky_window == nil then return end
     local cs = cairo_xlib_surface_create(conky_window.display,
                                          conky_window.drawable,
@@ -415,7 +367,11 @@ function conky_draw_image(path, x, y, w, h)
                                          conky_window.height)
     local cr = cairo_create(cs)
 
-    -- Check if file exists and is not empty
+    if corners then
+        draw_custom_rounded_rectangle(cr, x, y, w, h, corners)
+        cairo_clip(cr)
+    end
+
     local file = io.open(path, "rb")
     if not file or file:read("*a"):len() == 0 then
         if file then file:close() end
@@ -426,7 +382,6 @@ function conky_draw_image(path, x, y, w, h)
     end
     file:close()
 
-    -- Load the image
     local image = cairo_image_surface_create_from_png(path)
     if image and cairo_surface_status(image) == 0 then
         local img_width = cairo_image_surface_get_width(image)
@@ -449,26 +404,18 @@ function conky_draw_image(path, x, y, w, h)
     cairo_surface_destroy(cs)
 end
 
--- === Main drawing function ===
 function conky_draw_display()
     if conky_window == nil then
         print("Error: conky_window is nil")
         return
     end
 
-    -- Check if Spotify is running
     if not is_spotify_running() then
-       -- print("Spotify is not running")
         return
     end
 
-    -- Execute cover script to update album art
     execute_cover_script()
-
-    -- Fetch all metadata in one call
     local metadata = get_spotify_metadata()
-
-    -- Fetch progress data
     local progress = get_progress_data()
 
     local cs = cairo_xlib_surface_create(conky_window.display, conky_window.drawable, conky_window.visual, conky_window.width, conky_window.height)
@@ -481,8 +428,8 @@ function conky_draw_display()
             if box.centre_x then x = get_centered_x(canvas_width, w) end
 
             if box.type == "background" then
-                if i == 12 then -- Progress bar (index 12 in boxes_settings)
-                    w = math.max(1, 430 * (progress.percent / 100)) -- Match border width (430px)
+                if i == 12 then
+                    w = math.max(1, 430 * (progress.percent / 100))
                 end
                 if box.linear_gradient and box.colours then
                     local grad = cairo_pattern_create_linear(unpack(box.linear_gradient))
@@ -533,7 +480,7 @@ function conky_draw_display()
                 cairo_pattern_destroy(grad)
 
             elseif box.type == "image" then
-                conky_draw_image(box.path, x, y, w, h)
+                conky_draw_image(box.path, x, y, w, h, box.corners)
 
             elseif box.type == "text" then
                 local text = box.text
