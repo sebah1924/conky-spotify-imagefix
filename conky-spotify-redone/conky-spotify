@@ -1,5 +1,3 @@
--- Modified by @wim66 April 22 2025
-
 conky.config = {
     background = true,
     font = 'GE Inspira:size=12',
@@ -7,14 +5,16 @@ conky.config = {
     override_utf8_locale = true,
     default_color = 'white',
 
-    alignment = 'top_right',
+    alignment = 'middle_right',
     gap_x = 35,
-    gap_y = 50,
-    minimum_width = 650, minimum_height = 170,
+    gap_y = 0,
+
+    minimum_width = 650,
+    minimum_height = 170,
     maximum_width = 650,
 
     own_window = true,
-    own_window_type = 'normal', -- Gebruik 'normal' in plaats van 'desktop'
+    own_window_type = 'normal',
     own_window_transparent = true,
     own_window_argb_visual = true,
     own_window_colour = 'eeeeee',
